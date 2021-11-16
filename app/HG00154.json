@@ -1,0 +1,8 @@
+{
+    "id": "HG00154",
+    "name": "NCBI - National Center for Biotechnology Information",
+    "host": "ftp-trace.ncbi.nlm.nih.gov",
+    "path": "/1000genomes/ftp/phase3/data/HG00154/sequence_read",
+    "tree_file": "trees/ncbi_test.json",
+    "ftp_list_method": "mlsd"
+}
