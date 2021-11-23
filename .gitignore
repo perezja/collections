@@ -4,3 +4,6 @@ lib64/
 playground/
 notes/
 env/
+routines.egg-info
+token.txt
+json/

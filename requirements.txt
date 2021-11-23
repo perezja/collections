@@ -1,0 +1,1 @@
+-e git+https://github.com/perezja/routines.git@beac78df94958c241ceb79db97d706c0262a0f49#egg=uri
