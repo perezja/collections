@@ -1,16 +1,24 @@
-from typing import TypeVar, Iterable, Mapping, List, Tuple   
-from parts import ProxyPart, GroupPart, Properties
+from typing import Iterable, Mapping, List, Tuple   
+from parts import T, ProxyPart, Properties
+from fnmatch import fnmatch
 # standard resource fact parts (RFC 3659, Section 7.5)
 # note: lang, media-type and charset are excluded
-
-T = TypeVar('T')
 
 class NamePart(ProxyPart):
     __slots__ = ('glob')
 
-    __params__ = ('glob')
+    __params__ = ('identity', 'glob')
 
     attribute = '_name'
+
+    def valid(self, value):
+
+        if self.identity:
+            return super().valid(value)
+        if self.glob:
+            print("NamePart.valid: val={}, glob={}, res={}".format(value, self.glob, fnmatch(value, self.glob)))
+            return fnmatch(value, self.glob)
+        return True
 
 class SizePart(ProxyPart):
     __slots__ = ('minsize', 'maxsize')
@@ -18,7 +26,25 @@ class SizePart(ProxyPart):
     __params__ = ('minsize', 'maxsize')
 
     attribute = '_size' 
-    cast = int
+
+    cast: T = int
+
+#    def __init__(self):
+#        self.minsize = None
+#        self.maxsize = None
+#
+    def valid(self, value):
+        ans = True
+
+        if self.minsize:
+            print("{} > (minsize={}) is {}".format(value, self.minsize, value>self.minsize)) 
+            ans = value>self.minsize
+            
+        if self.maxsize:
+            print("{} < (maxsize={}) is {}".format(value, self.maxsize, value<self.maxsize)) 
+            ans = (value<self.maxsize) and ans
+
+        return ans
 
 class TypePart(ProxyPart):
     __slots__ = ()
@@ -40,28 +66,4 @@ class PermPart(ProxyPart):
 
    attribute = '_perm'
 
-class Facts(Properties):
-    """Object properties"""
-    __slots__ = ('_size', '_type', '_modify', '_create', '_perm')
-    __parts__ = ('size', 'type', 'modify', 'create', 'perm')
-
-    # Scalar Parts
-    size:int = SizePart()
-    type:str = TypePart()
-    # TODO: render `modify` and `create` into date types
-    modify:str = ModifyPart()
-    create:str = CreatePart()
-    perm:str = PermPart()
-
-#    def __set__(self, obj, mapping):
-#        print("Facts.__set__: self={}, obj={}, mapping={}".format(self, obj, mapping))
-#        super(Facts, self).__set__(obj, mapping)
-#    def __get__(self, obj, cls=None):
-#        print("Facts.__get__: self={}, obj={}, mapping={}".format(self, obj, mapping))
-#        super(Facts, self).__get__(obj, cls)
-#
-    size_params = ('size', {"minsize": 4000, "maxsize": 1241211})
-    wrong_params1 = ('fins', {"minsize": 4000, "maxsize": 1241211})
-    wrong_params2 = ('size', {"footsize": 4000, "maxsize": 1241211})
-    records=[('.', {'modify': '20200526174446', 'perm': 'fle', 'size': '0', 'type': 'cdir', 'unique': 'EBU3F4D43B', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('..', {'modify': '20211108212254', 'perm': 'fle', 'size': '40', 'type': 'pdir', 'unique': 'EBU1', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('integrated_sv_map', {'modify': '20150619134953', 'perm': 'fle', 'size': '0', 'type': 'dir', 'unique': 'EBU4A0F18F', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('data', {'modify': '20200526174446', 'perm': 'fle', 'size': '0', 'type': 'dir', 'unique': 'EBU3F4D43C', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'})]
 

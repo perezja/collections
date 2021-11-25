@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar, Mapping, Set, Iterable, Tuple, Optional, Any 
+from typing import TypeVar, Callable, Mapping, Set, Iterable, Tuple, Optional, Any 
 
 T = TypeVar("T")
 
@@ -10,34 +10,48 @@ class Part:
     __slots__ = ()
     
     empty = None 
-    
+
+    def flush(self):
+        for param in self.__params__:
+            setattr(self, param, None)
+
     def render(self, obj, value, raw:bool=False):
         if not value: return self.empty
         return value
 
-    def valid(self, obj) -> bool:
-        paramset=self.paramset
-        print("Part.valid: {}.paramset={}".format(self, paramset))
-        for param in paramset:
-            value = getattr(obj, param)
-            print("Part.valid: {}.{}={}".format(obj, param, value))
-        return True
+    def valid(self, value) -> bool:
+        ans = True
 
-    def in_scope(self, param):
-        if param in self.paramset: return True
-        else: return False
+        if self.identity:
+            print('Part.valid: {}=={} is {}'.format(value, self.identity, value==self.identity))
+            ans = (value==self.identity)
+
+        return ans
+
+    def defined(self, obj) -> bool:
+        if not hasattr(obj, self.attribute):
+            return True
+
+        value = getattr(obj, self.attribute)
+        return self.valid(value)
 
 class ProxyPart(Part):
-    __slots__ = ('identity',)
+    __slots__ = ('identity')
 
     __params__ = ('identity',) 
     
     attribute: str = None
-    cast = str
+
+    cast: T = str
+
+    def __init__(self):
+        for param in self.__params__:
+            setattr(self, param, None)
     
     def __get__(self, obj, cls=None):
-        print("ProxyPart.__get__: self={}, obj={}, cls={}".format(self, obj, cls))
-        if obj is None: return self
+        if obj is None: 
+            return self
+
         return getattr(obj, self.attribute)
     
     def __set__(self, obj, value: Optional[T]):
@@ -49,68 +63,106 @@ class ProxyPart(Part):
         
         setattr(obj, self.attribute, value)
 
-class GroupPart: 
-    """Descriptor for conceptually grouped slots in the owner class"""
+class Mask:
+    __slots__ = ()
 
-    __slots__ = ('parts')
+    def __get__(self, obj, cls=None):
+        print("Mask.__get__: self={}, obj={}, cls={}".format(self, obj, cls))
+        bools = list()
+        for part in obj.__parts__:
+            proxy = getattr(cls, part) 
+            bools.append(proxy.defined(obj))
 
-    def __init__(self, parts):
-        self.parts = parts 
-    
-    def __get__(self, obj, cls=None) -> Iterable[Tuple[str, T]]:
-        print("GroupPart.__get__: self={}, obj={}, cls={}".format(self, obj, cls))
+        print("Mask.__get__: bool vector={}".format(bools))
+        return not all(bools)
 
-        components = list()
+class Support:
+    """Defines the mappable domain for all object properties which may be set by a bucket filter"""
+    __slots__ = ()
 
-        for part in self.parts:
-            print("GroupPart.__get__: processing {}".format(part))
-            value = getattr(obj, part)
-            print("GroupPart.__get__: got {} from {}.{}".format(value, obj, part))
-            proxy = getattr(cls, part)
-            print("GroupPart.__get__: got {} from {}.{}".format(proxy, cls, part))
+    def __set__(self, obj, flt: Mapping[str, T]):
+        print("Support.__set__: self={}, obj={}".format(self, obj))
+        obj.flush()
+
+        supp=self.parse_filter(obj, flt)
         
-            components.append((part, proxy.render(obj, value))) 
-            print("GroupPart.__get__: calling {}.render({}, {})".format(proxy, obj, value))
+        for bounds in supp:
+            part, params = bounds
+            if part not in obj.__parts__:
+                raise AttributeError("{0.__class__.__name__}.{1} is not defined".format(obj, part))
+            proxy = getattr(obj.__class__, part)
 
-        return components 
-    
-    def __set__(self, obj, mapping: Mapping[str, T]):
-        print("In GroupPart.__set__: self={}, obj={}, mapping={}".format(self, obj, mapping))
+            for param, val in params.items():
+                if param not in proxy.__params__:
+                    raise AttributeError("{0.__class__.__name__}.{1.__class__.__name__} is not parameterized by '{2}'".format(obj, proxy, param))
+                print("Support.__set__: setting {}.{} to {}".format(proxy, param, val))
+                setattr(proxy, param, val)
 
-        for part in self.parts: 
-            value = mapping.get(part)
-            if value:
-                setattr(obj, part, value)
+    def __get__(self, obj, cls=None) -> Iterable[Tuple[str, Mapping[str, T]]]:
+        if obj is None:
+            return self
+
+        support = list() 
+        if not obj.__parts__: return None 
+        for part in obj.__parts__:
+            bounds = {} 
+            proxy = getattr(cls, part)
+
+            for param in proxy.__params__:
+                if hasattr(proxy, param):
+                    value = getattr(proxy, param)
+                    if value: bounds[param] = value 
+
+            if bounds: support.append((part, bounds))
+
+        return support 
+
+    @classmethod
+    def parse_filter(cls, obj, flt: Mapping[str, T]) -> Iterable[Tuple[str, Mapping[str, T]]]:
+        """filter arguments not mapping to a property parameter are ignored"""
+
+        model = obj.model()
+        print(model)
+
+        support = list()
+        for prop, params in model.items():
+            # filter can include scalar property (i.e., type="dir", name="file.txt")
+            pset = set(params) 
+            if 'identity' in pset:
+                pset.remove('identity'); pset.add(prop)
+
+            defined = set(flt).intersection(pset) 
+
+            if defined:
+                pmap = {param: val for param, val in flt.items() if param in defined}
+                if prop in defined: 
+                    pmap['identity'] = pmap[prop]; del pmap[prop]
+
+                support.append((prop, pmap))
+
+        return support
 
 class Properties:
-    "Base class for all object properties"
+    "Compound interface for all object properties"
     __slots__ = ()
     __parts__ = ()
 
-    #def __init__(self, model: Mapping[str, T], support: Tuple[str, Mapping[str, T]]=None);
-
     def __get__(self, obj, cls=None) -> Iterable[Tuple[str, T]]:
-        print("Properties.__get__: self={}, obj={}, cls={}".format(self, obj, cls))
         if obj is None:
             return self
 
         components = list()
 
         for part in obj.__parts__:
-            print("Properties.__get__: processing {}".format(part))
             value = getattr(obj, part)
-            print("Properties.__get__: got {} from {}.{}".format(value, obj, part))
             proxy = getattr(cls, part)
-            print("Properties.__get__: got {} from {}.{}".format(proxy, cls, part))
         
             components.append((part, proxy.render(obj, value))) 
-            print("Properties.__get__: calling {}.render({}, {})".format(proxy, obj, value))
 
         return components 
 
 
     def __set__(self, obj, mapping: Mapping[str, T]):
-        print("Properties.__set__: self={}, obj={}, mapping={}".format(self, obj, mapping))
 
         for part in obj.__slots__:
             setattr(obj, part, None)
@@ -119,47 +171,4 @@ class Properties:
             value = mapping.get(part)
             if value:
                 setattr(obj, part, value)
-
-    @classmethod
-    def model(cls) -> Mapping[str, Set]:
-        """A model is the parameterization for each property"""
-        model = {}
-        if not cls.__parts__: return None 
-        for part in cls.__parts__:
-            proxy = getattr(cls, part)
-            model[part] = proxy.__params__ 
-
-        return model 
-
-    @classmethod
-    def set_support(cls, support: Iterable[Tuple[str, Mapping[str, T]]]):
-        print("Properties.set_support: cls={}".format(cls))
-        
-        for bounds in support:
-            part, params = bounds
-            if part not in cls.__parts__:
-                raise AttributeError("{0.__name__}.{1} is not defined".format(cls, part))
-            proxy = getattr(cls, part)
-
-            for param, val in params.items():
-                if param not in proxy.__params__:
-                    raise AttributeError("{0.__name__}.{1.__class__.__name__} is not parameterized by '{2}'".format(cls, proxy, param))
-                setattr(proxy, param, val)
-    @classmethod
-    def get_support(cls) -> Iterable[Tuple[str, Mapping[str, T]]]:
-
-        support = list() 
-        if not cls.__parts__: return None 
-        for part in cls.__parts__:
-            bounds = {} 
-            proxy = getattr(cls, part)
-
-            for param in proxy.__params__:
-                if hasattr(proxy, param):
-                    bounds[param] = getattr(proxy, param)
-
-            if bounds: support.append((part, bounds))
-
-        return support 
-
-
+   
