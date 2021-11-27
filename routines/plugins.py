@@ -7,6 +7,7 @@ import time
 
 from abc import ABC, abstractmethod
 from typing import Callable, List, Tuple, Mapping	
+from common import Records
 from pkg_resources import iter_entry_points
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,6 @@ handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)  
-
-Records = List[Tuple[str, Mapping]]
 
 class ProtocolInterface(ABC):
     """Abstraction of client connection to the resource server""" 
@@ -64,8 +63,7 @@ class ProtocolInterface(ABC):
 
 class FTPInterface(ProtocolInterface):
 
-
-    def __init__(self, host:str, parser=None):
+    def __init__(self, host:str, parser='mlsd'):
         super().__init__(host)
        
         if parser is None:
@@ -97,13 +95,20 @@ class FTPInterface(ProtocolInterface):
         # public fn to get a path listing
         # guesses the format if it's not explicitly set
         try:
-            return self._listfn(path)
+            if not self._listfn:
+                self._listfn = self._guess_parser(path)
+
+            records = self._listfn(path)
+            self.failed_attempts = 0
+            return records
         except:
-            # self._listfn is not defined;
-            # try to guess it
-            self._listfn = self._guess_parser(path)
-            return self._listfn(path)
-    
+            self.failed_attempts += 1
+            self.ftp.close()
+            logger.warning("LIST FAILED {}; Failed {} times out of {}; reconnecting...".format(path, self.failed_attempts, self.max_attempts))
+            time.sleep(2 * random.uniform(0.5, 1.5))
+            self.stop_when_connected()
+
+   
     def _guess_parser(self, path):
         # also check out this library: http://cr.yp.to/ftpparse.html
         logger.info("Guessing FTP listing parser for {}...".format(self.host))

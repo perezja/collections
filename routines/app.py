@@ -16,14 +16,15 @@ def get_params(config):
 
     return(params)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('config')
-parser.add_argument('--path', default=None)
-parser.add_argument('--loglevel', default='INFO')
-args = parser.parse_args()
-
 def main(args):
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('config')
+    parser.add_argument('--path', default=None)
+    parser.add_argument('--target', default=None)
+    parser.add_argument('--loglevel', default='INFO')
+    args = parser.parse_args()
+    
     from uri import URI
 
     with open(args.config, 'r') as ip:
