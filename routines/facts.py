@@ -29,10 +29,6 @@ class SizePart(ProxyPart):
 
     cast: T = int
 
-#    def __init__(self):
-#        self.minsize = None
-#        self.maxsize = None
-#
     def valid(self, value):
         ans = True
 

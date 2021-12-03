@@ -11,8 +11,8 @@ class Part:
     
     empty = None 
 
-    def flush(self):
-        for param in self.__params__:
+    def reset(self):
+        for param in self.__filters__:
             setattr(self, param, None)
 
     def render(self, obj, value, raw:bool=False):
@@ -38,13 +38,17 @@ class Part:
 class ProxyPart(Part):
     __slots__ = ('identity')
 
-    __params__ = ('identity',) 
+    __filters__ = ('identity',) 
+    __params__ = ()
     
     attribute: str = None
 
     cast: T = str
 
     def __init__(self):
+        for param in self.__filters__:
+            setattr(self, param, None)
+
         for param in self.__params__:
             setattr(self, param, None)
     
@@ -63,112 +67,87 @@ class ProxyPart(Part):
         
         setattr(obj, self.attribute, value)
 
-class Mask:
-    __slots__ = ()
+# standard resource fact parts (RFC 3659, Section 7.5)
+# note: lang, media-type and charset are excluded
+
+from fnmatch import fnmatch
+
+class NamePart(ProxyPart):
+    __slots__ = ('glob')
+
+    __filters__ = ('identity', 'glob')
+
+    attribute = '_name'
+
+    def valid(self, value):
+
+        if self.identity:
+            return super().valid(value)
+        if self.glob:
+            print("NamePart.valid: val={}, glob={}, res={}".format(value, self.glob, fnmatch(value, self.glob)))
+            return fnmatch(value, self.glob)
+        return True
+
+class IdPart:
 
     def __get__(self, obj, cls=None):
-        print("Mask.__get__: self={}, obj={}, cls={}".format(self, obj, cls))
-        bools = list()
-        for part in obj.__parts__:
-            proxy = getattr(cls, part) 
-            bools.append(proxy.defined(obj))
-
-        print("Mask.__get__: bool vector={}".format(bools))
-        return not all(bools)
-
-class Support:
-    """Defines the mappable domain for all object properties which may be set by a bucket filter"""
-    __slots__ = ()
-
-    def __set__(self, obj, flt: Mapping[str, T]):
-        print("Support.__set__: self={}, obj={}".format(self, obj))
-        obj.flush()
-
-        supp=self.parse_filter(obj, flt)
-        
-        for bounds in supp:
-            part, params = bounds
-            if part not in obj.__parts__:
-                raise AttributeError("{0.__class__.__name__}.{1} is not defined".format(obj, part))
-            proxy = getattr(obj.__class__, part)
-
-            for param, val in params.items():
-                if param not in proxy.__params__:
-                    raise AttributeError("{0.__class__.__name__}.{1.__class__.__name__} is not parameterized by '{2}'".format(obj, proxy, param))
-                print("Support.__set__: setting {}.{} to {}".format(proxy, param, val))
-                setattr(proxy, param, val)
-
-    def __get__(self, obj, cls=None) -> Iterable[Tuple[str, Mapping[str, T]]]:
         if obj is None:
             return self
+        if not hasattr(obj, '_regex'):
+            return obj.name
 
-        support = list() 
-        if not obj.__parts__: return None 
-        for part in obj.__parts__:
-            bounds = {} 
-            proxy = getattr(cls, part)
+        match = obj._regex.match(obj.name) 
+        if match:
+            return match.group(0)
 
-            for param in proxy.__params__:
-                if hasattr(proxy, param):
-                    value = getattr(proxy, param)
-                    if value: bounds[param] = value 
+        return obj.name 
 
-            if bounds: support.append((part, bounds))
+class PatternPart(ProxyPart):
+    __slots__ = ('pattern')
 
-        return support 
+    attribute = '_pattern'
 
-    @classmethod
-    def parse_filter(cls, obj, flt: Mapping[str, T]) -> Iterable[Tuple[str, Mapping[str, T]]]:
-        """filter arguments not mapping to a property parameter are ignored"""
 
-        model = obj.model()
-        print(model)
+class SizePart(ProxyPart):
+    __slots__ = ('minsize', 'maxsize')
 
-        support = list()
-        for prop, params in model.items():
-            # filter can include scalar property (i.e., type="dir", name="file.txt")
-            pset = set(params) 
-            if 'identity' in pset:
-                pset.remove('identity'); pset.add(prop)
+    __filters__ = ('minsize', 'maxsize')
 
-            defined = set(flt).intersection(pset) 
+    attribute = '_size' 
 
-            if defined:
-                pmap = {param: val for param, val in flt.items() if param in defined}
-                if prop in defined: 
-                    pmap['identity'] = pmap[prop]; del pmap[prop]
+    cast: T = int
 
-                support.append((prop, pmap))
+    def valid(self, value):
+        ans = True
 
-        return support
+        if self.minsize:
+            print("{} > (minsize={}) is {}".format(value, self.minsize, value>self.minsize)) 
+            ans = value>self.minsize
+            
+        if self.maxsize:
+            print("{} < (maxsize={}) is {}".format(value, self.maxsize, value<self.maxsize)) 
+            ans = (value<self.maxsize) and ans
 
-class Properties:
-    "Compound interface for all object properties"
+        return ans
+
+class TypePart(ProxyPart):
     __slots__ = ()
-    __parts__ = ()
 
-    def __get__(self, obj, cls=None) -> Iterable[Tuple[str, T]]:
-        if obj is None:
-            return self
+    attribute = '_type'
 
-        components = list()
+class ModifyPart(ProxyPart):
+    __slots__ = ()
 
-        for part in obj.__parts__:
-            value = getattr(obj, part)
-            proxy = getattr(cls, part)
-        
-            components.append((part, proxy.render(obj, value))) 
+    attribute = '_modify'
 
-        return components 
+class CreatePart(ProxyPart):
+    __slots__ = ()
+
+    attribute = '_create'
+
+class PermPart(ProxyPart):
+   __slots__ = ()
+
+   attribute = '_perm'
 
 
-    def __set__(self, obj, mapping: Mapping[str, T]):
-
-        for part in obj.__slots__:
-            setattr(obj, part, None)
-
-        for part in obj.__parts__: 
-            value = mapping.get(part)
-            if value:
-                setattr(obj, part, value)
-   

@@ -67,36 +67,25 @@ class Object:
             proxy = getattr(cls, part)
             proxy.flush() 
 
-#    @property
-#    def properties(self):
-#        return super(self._properties).__get__(self, self._properties.__class__)
+class Group:
+    """A group of related data"""
 
-    record1=('file.txt', {'modify': '20200526174446', 'perm': 'fle', 'size': '100', 'type': 'file', 'unique': 'EBU3F4D43C', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'})
-    record2=('data', {'modify': '20200526174446', 'perm': 'fle', 'size': '0', 'type': 'dir', 'unique': 'EBU344D43C', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'})
-    record3=('ASJAD1AF_1.unmapped.bam.gz', {'modify': '20200526174446', 'perm': 'fle', 'size': '150', 'type': 'file', 'unique': 'EBU3F4D49P', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'})
-    records=[('.', {'modify': '20200526174446', 'perm': 'fle', 'size': '0', 'type': 'cdir', 'unique': 'EBU3F4D43B', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('..', {'modify': '20211108212254', 'perm': 'fle', 'size': '40', 'type': 'pdir', 'unique': 'EBU1', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('integrated_sv_map', {'modify': '20150619134953', 'perm': 'fle', 'size': '0', 'type': 'dir', 'unique': 'EBU4A0F18F', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'}), ('data', {'modify': '20200526174446', 'perm': 'fle', 'size': '0', 'type': 'dir', 'unique': 'EBU3F4D43C', 'unix.group': '0', 'unix.groupname': 'anonymous', 'unix.mode': '0444', 'unix.owner': '14', 'unix.ownername': 'ftp'})]
+    slots = ("_id", "_data")
 
-    gen_params1 = {"maxsize": 80, "type": "file", "glob": "*_1.*.gz"}
-    gen_params2 = {"maxsize": 160, "type": "file", "glob": "*_1.*.gz"}
-    gen_params3 = {"maxsize": 101, "type": "dir", "name": "data"}
-    size_params1 = {"minsize": 99, "maxsize": 200}
-    size_params2 = {"minsize": 101}
-    # error
-    size_params4 = {"minsize": 30, "maxsize": 20}
-
-    wrong_params1 = {"minsize": 4000, "maxsize": 1241211}
-    wrong_params2 = {"footsize": 4000, "maxsize": 1241211}
- 
-
+    name  = NamePart() 
+    id    = IDPart()
+    index = Index()
 
 class Bucket:
     """An object bucket"""
+    slots = ("_size", "_index", "_units", ")
 
-    _items: List[Tuple[str, Object]] = list() 
+    # compound interface
+    items: List[Tuple[str, Object]] = list() 
+    index = Index()
+    units = GroupPart()
 
-    def __init__(self, base:str, auth:Mapping): 
-        print(auth)
-        self.uri = URI(_uri=base, **auth)  
+    def __init__(self, index_rgx=None): 
         print("Bucket.__init__(): {}".format(self.uri))
         print("Bucket.__init__(): scheme={}, auth={}".format(self.uri.scheme, self.uri.authority))
 

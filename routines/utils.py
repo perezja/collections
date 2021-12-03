@@ -13,6 +13,22 @@ class Walker:
         self.pcl = pcl
         self._prog = None
 
+    def getfiles(self, path) -> Record:
+
+        for fname, facts in self.pcl.ls(path):
+            if not self._isfile(facts):
+                continue
+            yield (fname, facts)
+
+    def find(self, dirname, pattern):
+        """recurisvely search a literal directory for all sub-directories
+        matching a unix shell-like wild card or name"""
+        results = list()
+        for record in self._rlistdir(dirname):
+            dirname, basename = os.path.split(record)
+            if fnmatch.fnmatch(basename, pattern):
+                yield record 
+
     def scandirs(self, pathname, rgx=None, *, cache=True) -> List[str]:
         """for a given pathname, perform shell-like expansion on the basename 
         and return all paths, optionally performing regular expression matching 
@@ -28,15 +44,16 @@ class Walker:
             elif not cache:
                 prog = re.compile(rgx) 
     
-        results = list()
+        #results = list()
         for path in self.glob(pathname, fullpath=True):
             print("Walker.scandirs: searching {}".format(path))
             for dirname in self._listdir(path):
                 res = os.path.join(path, dirname)
                 if not rgx or prog.match(dirname):
-                    results.append(res)
+                    #results.append(res)
+                    yield res
 
-        return results
+        #return results
                  
 
     def glob(self, pathname, fullpath=False):
@@ -61,4 +78,17 @@ class Walker:
 
     def _isdir(self, facts: Mapping[str, T]):
         return facts.get('type')=='dir'
+
+    def _isfile(self, facts: Mapping[str, T]):
+        return facts.get('type')=='file'
+
+    def _split(self, path):
+        return os.path.split(path)
+
+    def _join(self, path1, path2):
+        return os.path.join(path1, path2)
+
+
+
+
 

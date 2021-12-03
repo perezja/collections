@@ -7,3 +7,6 @@ env/
 routines.egg-info
 token.txt
 json/
+test.*
+test_*
+
