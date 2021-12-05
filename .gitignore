@@ -10,3 +10,4 @@ json/
 test.*
 test_*
 
+backup/
