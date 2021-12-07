@@ -1,5 +1,6 @@
-from parts import T, NamePart, IdPart, SizePart, TypePart, ModifyPart, CreatePart, PermPart
+from parts import T, PathPart, NamePart, IdPart, URIPart, SizePart, TypePart, ModifyPart, CreatePart, PermPart
 from typing import Optional, Set, Mapping, Iterable, Tuple
+from uri import URI
 
 import re
 
@@ -120,40 +121,50 @@ class Masked:
 
 class Object:
     """Atomic units of workflow inputs"""
-    __slots__ = ('_uri', '_name', '_size', '_type', '_modify', '_create', '_perm') # properties
+    __slots__ = ('source', '_path', '_size', '_type', '_modify', '_create', '_perm') # properties
 
-    __parts__ = ('name', 'size', 'type', 'modify', 'create', 'perm')
+    __parts__ = ('relpath', 'size', 'type', 'modify', 'create', 'perm')
 
-    # Scalar Parts
-    name: str   = NamePart()
-    id: str     = IdPart()
-    size: int   = SizePart()
-    type: str   = TypePart()
-    modify: str = ModifyPart()
-    create: str = CreatePart()
-    perm: str   = PermPart()
-    
-    # Compound interfaces
+    # scalar fact parts
+    name: str      = NamePart()
+    relpath: str   = PathPart()
+    uri: str       = URIPart()
+    id: str        = IdPart()
+    size: int      = SizePart()
+    type: str      = TypePart()
+    modify: str    = ModifyPart()
+    create: str    = CreatePart()
+    perm: str      = PermPart() 
+
+    # uri interface
+    source: URI 
+    uri: URIPart()
+
+    # compound interfaces
     properties  = Properties()
 
-    # Feature interface 
+    # feature interface 
     filter = Filter()
     masked = Masked() 
 
-    def __new__(cls, data: Tuple[str, Mapping[str, T]]):
+    def __new__(cls, source: URI, data: Tuple[str, Mapping[str, T]]):
 
         obj = super(Object, cls).__new__(cls)
 
-        name, mapping = data 
-        mapping['name'] = name
+        relpath, mapping = data 
+        mapping['relpath'] = relpath 
 
         obj.properties = mapping 
+        obj.source = source
 
         return obj
     
     def __str__(self):
         props = ",".join("{}={}".format(part, value) for part, value in self.properties)
         return "Object({})".format(props)
+
+    def __link__(self):
+        pass
 
     @classmethod
     def model(cls) -> Mapping[str, Set]:

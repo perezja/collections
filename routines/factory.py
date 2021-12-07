@@ -1,6 +1,7 @@
 from plugins import get_plugin
 from utils import Walker
 from collections import defaultdict
+import json
 
 class Resource:
 
@@ -8,8 +9,19 @@ class Resource:
 
         pcl = get_plugin(scheme)
         self.walker = Walker(pcl(host)) 
+    
+    def read_json(self, path):
 
-    def new_collection(self, pathname, data_dir, idx_rgx="^[A-Z0-9]{7}$"):
+        with open(path, 'r') as fh:
+            dat = json.loads(fh.read())
+            return dat 
+
+    def dump_json(self, d, outfile):
+
+        with open(outfile, "w") as fh:
+            json.dump(d, fh)
+
+    def new_collection(self, idx_dir, data_dir, idx_rgx="^[A-Z0-9]{7}$"):
         """create a data collection from an index directory and target data path. 
         A collection is a series of buckets storing uniform sets of data mapping to 
         a specific index (i.e., SampleID). All directory names listed in the index 
@@ -20,13 +32,17 @@ class Resource:
 
         counter = 0
         d=defaultdict(list)
-        for idxpath in self.walker.scandirs(pathname, idx_rgx):
+        for idxpath in self.walker.scandirs(idx_dir, idx_rgx):
             dirname, idx = self.walker._split(idxpath)
+            # collection index part here: {host=(from handler), pdir=idxpath)
             counter+=1
             print("Resource.new_collection: Creating bucket for index '{0}', total={1} ".format(idx, counter), flush=True)
             for ddir in self.walker.find(idxpath, data_dir):
                 print(f"Resource.new_collection: Searching {ddir}")
-                for record in self.walker.getfiles(self.walker._join(idxpath, ddir)):
+                for name, facts in self.walker.getfiles(self.walker._join(idxpath, ddir)):
+                    relpath = self.walker._join(ddir, name)
+                    record = (relpath, facts)
+                    # bucket index here, record(name)
                     d[idxpath].append(record)
 
             if counter==5: break

@@ -1,5 +1,10 @@
+import os
+
 from abc import ABC, abstractmethod
 from typing import TypeVar, Callable, Mapping, Set, Iterable, Tuple, Optional, Any 
+
+from fnmatch import fnmatch
+from pathlib import Path
 
 T = TypeVar("T")
 
@@ -70,14 +75,23 @@ class ProxyPart(Part):
 # standard resource fact parts (RFC 3659, Section 7.5)
 # note: lang, media-type and charset are excluded
 
-from fnmatch import fnmatch
+class PathPart(ProxyPart):
+	__slots__ = ()
+	
+	attribute = '_path'
+	cast = Path
+	empty = '/'
 
 class NamePart(ProxyPart):
     __slots__ = ('glob')
 
     __filters__ = ('identity', 'glob')
 
-    attribute = '_name'
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+
+        return obj.relpath.name 
 
     def valid(self, value):
 
@@ -89,6 +103,7 @@ class NamePart(ProxyPart):
         return True
 
 class IdPart:
+    __slots__ = ()
 
     def __get__(self, obj, cls=None):
         if obj is None:
@@ -96,11 +111,22 @@ class IdPart:
         if not hasattr(obj, '_regex'):
             return obj.name
 
-        match = obj._regex.match(obj.name) 
+        print("IdPart.__get__: obj={}, cls={}, obj.name={}".format(obj, cls, obj.name))
+        match = obj._regex.match(os.path.basename(obj.name)) 
         if match:
             return match.group(0)
 
         return obj.name 
+
+class URIPart(ProxyPart):
+    __slots__ = ()
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+
+        return obj.source.resolve(obj.relpath)
+
 
 class PatternPart(ProxyPart):
     __slots__ = ('pattern')
