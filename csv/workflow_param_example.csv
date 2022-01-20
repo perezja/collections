@@ -1,0 +1,3 @@
+"workflow_id","field","type","value"
+"scrna-seq1","reference_name","string","GRCh38-2020-transcriptome"
+"scrna-seq1","transcriptome_tar_gz","string","https://s3.amazon.com/trexbio.refdata/refdata-gex-GRCh38-2020-A.tar.gz"
