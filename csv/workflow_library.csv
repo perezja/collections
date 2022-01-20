@@ -1,3 +1,3 @@
-"workflow_id","ngs_type","uri","docker_image","ram", "cpu", "disk_space", "boot_disk_space" 
+"workflow_id","ngs_type","uri","docker_image","ram","cpu","disk_space","boot_disk_space" 
 "scrna-seq1","scrna","https://s3.amazon.com/trexbio.wdl/cellranger.wdl","trexbio/scrna-seq:v1", 64, 8, 400, 12
 "bulkrna-seq1","bulkrna","https://s3.amazon.com/trexbio.wdl/gtex-rnaseq.wdl","trexbio/bulkrna-seq:v1", 27, 6, 10, 12

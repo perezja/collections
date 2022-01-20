@@ -1,3 +1,0 @@
-"project_id", "sample","library","readgroup","read","hash","hashtype"
-"mariottoni-hs", "scrna-sample1","lib1","","https://s3.amazon.com/trexbio.mariottoni-hs/Library1_S1_L001_R1_001.fq.gz","b859d6dd76a6861ce7e9a978ae2e530e","md5"
-"mariottoni-hs","scrna-sample1","lib1","","https://s3.amazon.com/trexbio.mariottoni-hs/Library1_S1_L001_R2_001.fq.gz","aj8ahdd76a6861ce7e9a978ae2e530e","md5"
