@@ -1,2 +1,2 @@
-# routines
-Routines library for the FLOW application
+# collections
+Bucket and Collections objects for organizing and filtering sequence data
